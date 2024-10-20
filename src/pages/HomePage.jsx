@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import _ from "lodash";
+import { useDebounce } from "use-debounce";
 import Search from "../components/search";
 import Product from "../components/Product";
 import Category from "../components/Category";
@@ -17,7 +17,6 @@ import { SUCCESS_STATUS_CODE_200, ERROR_MESSAGE } from "../constant";
 const HomePage = () => {
   const SELECTED_CATEGORY_INITIAL_STATE = "";
   const SELECTED_SEARCH_VALUE = "";
-  const INITIAL_LOAD_VALUE = true;
   const INITIAL_IS_INFINITE_SCROLL_VALUE = false;
 
   const dispatch = useDispatch();
@@ -37,7 +36,7 @@ const HomePage = () => {
     SELECTED_CATEGORY_INITIAL_STATE
   );
   const [searchValue, setSearchValue] = useState(SELECTED_SEARCH_VALUE);
-  const [initialLoad, setInitialLoad] = useState(INITIAL_LOAD_VALUE);
+  const [debouncedQuery] = useDebounce(searchValue, 500);
   const [isInfiniteScroll, setIsInfiniteScroll] = useState(
     INITIAL_IS_INFINITE_SCROLL_VALUE
   );
@@ -79,6 +78,17 @@ const HomePage = () => {
     }
   }, [dispatch, selectedCategory]);
 
+  useEffect(() => {
+    if (debouncedQuery) {
+      getProductsAction({
+        isSearch: true,
+        searchValue: debouncedQuery,
+        limit: 0,
+        skip: 0,
+      });
+    }
+  }, [debouncedQuery]);
+
   const productList = !!selectedCategory
     ? categoryProduct
     : Object.values(products);
@@ -97,33 +107,11 @@ const HomePage = () => {
   };
 
   const onSearchHandler = (e) => {
-    setInitialLoad(false);
     setIsInfiniteScroll(INITIAL_IS_INFINITE_SCROLL_VALUE);
     setSelectedCategory(SELECTED_CATEGORY_INITIAL_STATE);
     const { value } = e.target;
     setSearchValue(value);
   };
-
-  const debounceFunction = _.debounce((value) => {
-    getProductsAction({
-      isSearch: true,
-      searchValue: value,
-      limit: 0,
-      skip: 0,
-    });
-  }, 1000);
-
-  useEffect(() => {
-    if (!initialLoad && searchValue) {
-      debounceFunction(searchValue);
-    }
-  }, [initialLoad, searchValue]);
-
-  useEffect(() => {
-    return () => {
-      debounceFunction.cancel();
-    };
-  }, []);
 
   const infiniteScroll = () => {
     if (total >= productList?.length) {
